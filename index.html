@@ -2,14 +2,31 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cronos Ultra v5.0 - Premium Edition</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#d4af37">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     
     <style>
         :root { --gold: #d4af37; --bg: #050505; --card: #121212; }
+        html { scroll-behavior: smooth; }
         body { background: var(--bg); color: #eee; font-family: 'Segoe UI', sans-serif; margin: 0; overflow-x: hidden; }
+        
+        img { 
+            user-select: none; 
+            -webkit-user-drag: none; 
+            -webkit-tap-highlight-color: transparent;
+            display: block;
+            width: 100%;
+            max-width: 850px;
+        }
 
         /* --- HEADER / NAV --- */
         #nav {
@@ -40,10 +57,6 @@
         /* --- VIEWER --- */
         #viewer { margin-top: 150px; min-height: 100vh; position: relative; display: flex; flex-direction: column; align-items: center; }
 
-        /* MODO VERTICAL (WEBTOON / SCROLL) */
-        .mode-vertical img { width: 100%; max-width: 850px; display: block; }
-
-        /* MODO MANGÁ (HORIZONTAL / PÁGINA POR PÁGINA) */
         .mode-manga { 
             width: 100vw; height: 100vh; margin-top: 0 !important; 
             justify-content: center; align-items: center; overflow: hidden;
@@ -51,28 +64,16 @@
         .mode-manga img { height: 100vh; width: 100vw; object-fit: contain; display: none; }
         .mode-manga img.active { display: block; }
 
-        /* Cliques Laterais para o Mangá */
-        .nav-side {
-            position: fixed; top: 0; height: 100%; width: 25%; z-index: 500;
-            cursor: pointer; display: none;
-        }
+        .nav-side { position: fixed; top: 0; height: 100%; width: 25%; z-index: 500; cursor: pointer; display: none; }
         .nav-left { left: 0; }
         .nav-right { right: 0; }
+        body.manga-active { touch-action: manipulation; }
         body.manga-active .nav-side { display: block; }
 
         /* --- MODAIS --- */
-        .modal { 
-            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); 
-            z-index: 2000; justify-content: center; align-items: center; 
-        }
-        .modal-content { 
-            background: var(--card); width: 90%; max-width: 450px; 
-            border-radius: 10px; padding: 20px; border: 1px solid var(--gold); 
-        }
-        .list-item { 
-            padding: 10px; border-bottom: 1px solid #222; display: flex; 
-            justify-content: space-between; align-items: center; 
-        }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
+        .modal-content { background: var(--card); width: 90%; max-width: 450px; border-radius: 10px; padding: 20px; border: 1px solid var(--gold); }
+        .list-item { padding: 10px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
         .list-item span { cursor: pointer; color: var(--gold); }
 
         #status { color: #00ffcc; font-size: 11px; font-weight: bold; }
@@ -112,7 +113,7 @@
 <div id="modalFav" class="modal" onclick="fecharModalExterno(event)">
     <div class="modal-content">
         <h3 style="color:var(--gold)">⭐ Meus Favoritos</h3>
-        <div id="lista-favs"></div>
+        <div id="lista-favs" style="max-height: 400px; overflow-y: auto;"></div>
         <button onclick="fecharModal()" style="width:100%; margin-top:15px;">FECHAR</button>
     </div>
 </div>
@@ -134,9 +135,9 @@
         req.onupgradeneeded = e => e.target.result.createObjectStore("offline", { keyPath: "id" });
         req.onsuccess = e => { db = e.target.result; renderOffline(); };
         renderFavs();
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
     }
 
-    // --- MODO DE LEITURA (MANGÁ VS VERTICAL) ---
     function toggleMode() {
         const v = document.getElementById('viewer');
         const btn = document.getElementById('modeBtn');
@@ -144,47 +145,38 @@
             v.classList.replace('mode-vertical', 'mode-manga');
             document.body.classList.add('manga-active');
             btn.innerText = "MODO: MANGÁ (Página)";
-            renderizar(imagensAtuais); // Atualiza exibição para uma página só
         } else {
             v.classList.replace('mode-manga', 'mode-vertical');
             document.body.classList.remove('manga-active');
             btn.innerText = "MODO: VERTICAL";
-            renderizar(imagensAtuais); // Volta todas as imagens
         }
+        renderizar(imagensAtuais);
     }
 
-    // --- NAVEGAÇÃO MANGÁ (PÁGINA POR PÁGINA) ---
-    function nextPage() {
-        if (indexPagina < imagensAtuais.length - 1) {
-            indexPagina++;
-            atualizarPaginaManga();
-        }
-    }
-    function prevPage() {
-        if (indexPagina > 0) {
-            indexPagina--;
-            atualizarPaginaManga();
-        }
-    }
+    function nextPage() { if (indexPagina < imagensAtuais.length - 1) { indexPagina++; atualizarPaginaManga(); } }
+    function prevPage() { if (indexPagina > 0) { indexPagina--; atualizarPaginaManga(); } }
+
     function atualizarPaginaManga() {
         const imgs = document.querySelectorAll('#viewer img');
-        imgs.forEach((img, i) => {
-            img.classList.toggle('active', i === indexPagina);
-        });
+        imgs.forEach((img, i) => img.classList.toggle('active', i === indexPagina));
         window.scrollTo(0,0);
+        salvarProgressoLocal();
     }
 
-    // --- CINEMA ---
-    function toggleCinema() {
-        document.body.classList.toggle('cinema-mode');
-        if (document.body.classList.contains('cinema-mode')) {
-            document.documentElement.requestFullscreen().catch(() => {});
-        } else {
-            if (document.fullscreenElement) document.exitFullscreen();
+    window.onscroll = () => {
+        if (!document.getElementById('viewer').classList.contains('mode-manga')) {
+            clearTimeout(window.saveTimeout);
+            window.saveTimeout = setTimeout(salvarProgressoLocal, 1000);
         }
+    };
+
+    function salvarProgressoLocal() {
+        if (!tituloAtual || !imagensAtuais.length) return;
+        let progresso = JSON.parse(localStorage.getItem('cronos_progress') || '{}');
+        progresso[tituloAtual] = { index: indexPagina, scroll: window.scrollY, total: imagensAtuais.length, ts: Date.now() };
+        localStorage.setItem('cronos_progress', JSON.stringify(progresso));
     }
 
-    // --- BUSCA ---
     async function buscar(urlManual) {
         const url = urlManual || document.getElementById('urlIn').value;
         if(!url) return;
@@ -207,13 +199,15 @@
     function renderizar(lista) {
         const v = document.getElementById('viewer');
         const isManga = v.classList.contains('mode-manga');
-        v.innerHTML = lista.map((src, i) => 
-            `<img src="${src}" class="${isManga && i === indexPagina ? 'active' : ''}">`
-        ).join('');
-        window.scrollTo(0,0);
+        v.innerHTML = lista.map((src, i) => `<img src="${src}" class="${isManga && i === indexPagina ? 'active' : ''}">`).join('');
+        
+        const salvo = JSON.parse(localStorage.getItem('cronos_progress') || '{}');
+        if (salvo[tituloAtual]) {
+            if (isManga) { indexPagina = salvo[tituloAtual].index; atualizarPaginaManga(); }
+            else { setTimeout(() => window.scrollTo({ top: salvo[tituloAtual].scroll, behavior: 'smooth' }), 500); }
+        } else { window.scrollTo(0,0); }
     }
 
-    // --- FAVORITOS (LocalStorage) ---
     function favoritar() {
         const url = document.getElementById('urlIn').value;
         if(!url || !tituloAtual) return alert("Busque um capítulo primeiro!");
@@ -222,18 +216,22 @@
             favs.push({ t: tituloAtual, u: url });
             localStorage.setItem('cronos_favs', JSON.stringify(favs));
             renderFavs();
-            alert("Favoritado!");
         }
     }
 
     function renderFavs() {
         const f = JSON.parse(localStorage.getItem('cronos_favs') || '[]');
-        document.getElementById('lista-favs').innerHTML = f.length ? f.map(i => `
-            <div class="list-item">
-                <span onclick="buscar('${i.u}')">${i.t}</span>
-                <button onclick="removerFav('${i.u}')" style="border:none; color:red; background:none;">X</button>
-            </div>
-        `).join('') : "Sem favoritos.";
+        const p = JSON.parse(localStorage.getItem('cronos_progress') || '{}');
+        const cont = document.getElementById('lista-favs');
+        cont.innerHTML = f.length ? f.map(i => {
+            let pct = p[i.t] ? `<br><small style="color:#888;">Progresso: ${Math.round(((p[i.t].index + 1) / p[i.t].total) * 100)}%</small>` : "";
+            return `<div class="list-item" style="flex-direction:column; align-items:flex-start;">
+                <div style="display:flex; justify-content:space-between; width:100%;">
+                    <span onclick="buscar('${i.u}')">${i.t}</span>
+                    <button onclick="removerFav('${i.u}')" style="border:none; color:red; background:none;">X</button>
+                </div>${pct}
+            </div>`;
+        }).join('') : "Sem favoritos.";
     }
 
     function removerFav(url) {
@@ -242,7 +240,6 @@
         renderFavs();
     }
 
-    // --- OFFLINE (IndexedDB) ---
     async function salvarOffline() {
         if(!imagensAtuais.length) return;
         document.getElementById('status').innerText = "SALVANDO OFF...";
@@ -250,9 +247,7 @@
         for(let url of imagensAtuais) {
             const r = await fetch(PROXY + encodeURIComponent(url));
             const b = await r.blob();
-            const s = await new Promise(res => {
-                const rd = new FileReader(); rd.onloadend = () => res(rd.result); rd.readAsDataURL(b);
-            });
+            const s = await new Promise(res => { const rd = new FileReader(); rd.onloadend = () => res(rd.result); rd.readAsDataURL(b); });
             b64s.push(s);
         }
         const tx = db.transaction("offline", "readwrite");
@@ -263,31 +258,22 @@
     function renderOffline() {
         if(!db) return;
         db.transaction("offline").objectStore("offline").getAll().onsuccess = e => {
-            const it = e.target.result;
-            document.getElementById('lista-off').innerHTML = it.map(i => `
+            document.getElementById('lista-off').innerHTML = e.target.result.map(i => `
                 <div class="list-item">
                     <span onclick="lerOff('${i.id}')">${i.id}</span>
                     <button onclick="deletarOff('${i.id}')" style="border:none; color:red; background:none;">X</button>
-                </div>
-            `).join('');
+                </div>`).join('');
         };
     }
 
     function lerOff(id) {
         db.transaction("offline").objectStore("offline").get(id).onsuccess = e => {
-            imagensAtuais = e.target.result.imgs;
-            tituloAtual = id;
-            indexPagina = 0;
-            renderizar(imagensAtuais);
-            fecharModal();
+            imagensAtuais = e.target.result.imgs; tituloAtual = id; indexPagina = 0; renderizar(imagensAtuais); fecharModal();
         };
     }
 
-    function deletarOff(id) {
-        db.transaction("offline", "readwrite").objectStore("offline").delete(id).onsuccess = () => renderOffline();
-    }
+    function deletarOff(id) { db.transaction("offline", "readwrite").objectStore("offline").delete(id).onsuccess = () => renderOffline(); }
 
-    // --- ZIP ---
     async function baixarZip() {
         if(!imagensAtuais.length) return;
         const zip = new JSZip();
@@ -298,25 +284,9 @@
         zip.generateAsync({type:"blob"}).then(b => saveAs(b, `${tituloAtual}.zip`));
     }
 
-    // --- MODAIS ---
     function abrirModal(id) { document.getElementById(id).style.display = 'flex'; }
     function fecharModal() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
     function fecharModalExterno(e) { if(e.target.className === 'modal') fecharModal(); }
-
-
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#d4af37">
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('Cronos PWA Ativo!'))
-        .catch(err => console.log('Erro no PWA:', err));
-    });
-  }
-
 </script>
 </body>
 </html>
-
-

@@ -4,19 +4,21 @@
   "description": "Leitor de Mangás e Webtoons com suporte Offline",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/3594/3594412.png",
+      "src": "icon-192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any maskable"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/3594/3594412.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "src": "icon-512.jpg",
+      "type": "image/jpeg",
+      "sizes": "512x512",
+      "purpose": "any"
     }
   ],
   "start_url": "./index.html",
   "display": "standalone",
-  "theme_color": "#050505",
+  "theme_color": "#d4af37",
   "background_color": "#050505",
-  "orientation": "any"
+  "orientation": "portrait"
 }
