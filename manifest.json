@@ -1,24 +1,17 @@
 {
-  "short_name": "CronosUltra",
-  "name": "Cronos Ultra v5.0 - Premium",
-  "description": "Leitor de Mangás e Webtoons com suporte Offline",
+  "name": "Cronos Ultra Hybrid",
+  "short_name": "Cronos Ultra",
+  "description": "Leitor de Mangás Híbrido Avançado",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#d4af37",
   "icons": [
     {
-      "src": "icon-192.png",
-      "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.jpg",
-      "type": "image/jpeg",
+      "src": "https://cdn-icons-png.flaticon.com/512/1674/1674291.png",
       "sizes": "512x512",
-      "purpose": "any"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ],
-  "start_url": "./index.html",
-  "display": "standalone",
-  "theme_color": "#d4af37",
-  "background_color": "#050505",
-  "orientation": "portrait"
+  ]
 }
